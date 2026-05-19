@@ -164,6 +164,18 @@ async function handleMessage(sock, msg) {
     // Build phone<->LID alias map
     if (msg.participant && from.endsWith('@lid')) registerJidAlias(msg.participant, from);
     if (msg.key?.participant && from.endsWith('@lid')) registerJidAlias(msg.key.participant, from);
+    // Resolve LID → phone via WhatsApp so /takeover <phone> works.
+    // We do this once per LID (result is cached in jidAliasMap).
+    if (from.endsWith('@lid') && !getPhoneForLid(from)) {
+      try {
+        const [result] = await sock.onWhatsApp(from);
+        if (result?.jid && result.jid !== from) {
+          registerJidAlias(result.jid, from);
+          console.log(`🔗 LID resolved: ${from} → ${result.jid}`);
+        }
+      } catch (e) { /* silent — not all LIDs resolve */ }
+    }
+
 
     // -- AGENT COMMANDS (any fromMe message starting with /) --
     if (fromMe && text && text.startsWith('/')) {

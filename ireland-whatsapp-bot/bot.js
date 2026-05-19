@@ -159,6 +159,18 @@ async function handleMessage(sock, msg) {
     if (msg.key?.participant && from.endsWith('@lid')) {
       registerJidAlias(msg.key.participant, from);
     }
+
+    // Resolve LID → phone via WhatsApp so /takeover <phone> works.
+    // Done once per LID; result cached in jidAliasMap.
+    if (from.endsWith('@lid') && !getPhoneForLid(from)) {
+      try {
+        const [result] = await sock.onWhatsApp(from);
+        if (result?.jid && result.jid !== from) {
+          registerJidAlias(result.jid, from);
+          console.log(`🔗 LID resolved: ${from} → ${result.jid}`);
+        }
+      } catch (e) { /* silent */ }
+    }
     const text = (
       m.conversation ||
       m.extendedTextMessage?.text ||
